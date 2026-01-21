@@ -247,6 +247,41 @@ h1 {
     gap: 8px;
 }
 
+.event-genres {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.event-description {
+    font-size: 0.9rem;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.4;
+    opacity: 0.8;
+}
+
+.book-link {
+    font-size: 0.75rem;
+    color: #fff;
+    text-decoration: none;
+    background: var(--primary);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.book-link:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.book-link:active {
+    transform: translateY(0);
+}
+
 .event-meta {
     font-size: 0.9rem;
     color: var(--text-dim);

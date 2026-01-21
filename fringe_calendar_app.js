@@ -292,6 +292,8 @@ function renderFilteredDay() {
             const isPriorityShow = PRIORITY_URLS.includes(event.link);
             const genreEmoji = getGenreEmoji(event.genre);
 
+            const descSnippet = event.desc ? (event.desc.length > 200 ? event.desc.substring(0, 200) + '...' : event.desc) : '';
+
             const eventCard = document.createElement('div');
             eventCard.className = 'event-card';
             eventCard.dataset.action = 'open-popup';
@@ -300,8 +302,11 @@ function renderFilteredDay() {
                 <div class="event-time">${event.time || 'TBD'}</div>
                 <div class="event-info">
                     <div class="event-title">${genreEmoji}${event.title} ${isPriorityShow ? '⭐' : ''}</div>
+                    <div class="event-genres">${event.genre || ''}</div>
+                    <div class="event-description">${descSnippet}</div>
                     <div class="event-meta">
                         <span class="venue-pill" style="background: ${venueColor}">${event.loc}</span>
+                        <a href="${event.link}" target="_blank" class="book-link" onclick="event.stopPropagation()">Book Tickets ↗</a>
                     </div>
                 </div>
             `;
