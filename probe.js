@@ -1,33 +1,71 @@
+/**
+ * Probe Utility (probe.js)
+ * 
+ * A debug/testing utility for inspecting Fringe Festival event page structure.
+ * This helps identify correct CSS selectors when the website layout changes.
+ */
+
 const puppeteer = require('puppeteer');
 
 (async () => {
-    const browser = await puppeteer.launch({ headless: true }); // Headless for speed
-    const page = await browser.newPage();
-    const url = "https://tickets.fringe.co.nz/event/446:8221/"; // Example from f2026.csv
+    // 1. CONFIGURATION
+    const browser = await puppeteer.launch({ headless: true });
+    const browserPage = await browser.newPage();
+    const targetUrl = "https://tickets.fringe.co.nz/event/446:8271/"; // Dirty Old Songs example
 
     try {
-        console.log(`Navigating to ${url}`);
-        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        console.log(`Navigating to test page: ${targetUrl}`);
+        await browserPage.goto(targetUrl, { waitUntil: 'domcontentloaded' });
 
-        // Attempt to identify selectors
-        const title = await page.evaluate(() => document.querySelector('h1')?.innerText);
-        const schedule = await page.evaluate(() => document.querySelector('.schedule')?.innerText);
-        const description = await page.evaluate(() => document.querySelector('.description')?.innerText || document.querySelector('.event-description')?.innerText); // Guessing class
+        // 2. EXTRACTION TESTING
+        const pageData = await browserPage.evaluate(() => {
+            const title = document.querySelector('.primary-color')?.innerText || document.querySelector('h1')?.innerText;
 
-        // Dump some body HTML to help find selectors if guesses fail
-        const bodysample = await page.content();
+            // Look for all list items in the main container
+            const allListItems = Array.from(document.querySelectorAll('li'));
+            const listTexts = allListItems.map(li => li.innerText.trim()).filter(t => t.length > 0 && t.length < 50);
 
-        console.log("--- PROBE RESULTS ---");
-        console.log({ title, schedule, description_found: !!description });
+            // Specifically look for the element containing "Comedy"
+            // (Only for this specific test case "Bad Girls" which we know has "Comedy")
+            const genreElement = Array.from(document.querySelectorAll('*'))
+                .find(el => el.innerText && el.innerText.trim() === 'Comedy' && el.tagName !== 'SCRIPT');
 
-        if (!title || !description || !schedule) {
-            console.log("--- HTML DUMP (Partial) ---");
-            console.log(bodysample.slice(0, 2000)); // First 2000 chars
-        }
+            // NEW: Probe the 'small' tag in the title
+            const titleSmall = document.querySelector('div.title small')?.innerText;
 
-    } catch (error) {
-        console.error(error);
+            let genreSelector = null;
+            let genreParentClass = null;
+            if (genreElement) {
+                console.log(genreElement);
+                genreSelector = genreElement.tagName.toLowerCase() + (genreElement.className ? '.' + genreElement.className.split(' ').join('.') : '');
+                genreParentClass = genreElement.parentElement ? genreElement.parentElement.className : 'No parent';
+            }
+
+            return {
+                title,
+                listTexts: listTexts.slice(0, 20), // Just the first few
+                genreFound: !!genreElement,
+                genreSelector,
+                genreParentClass,
+                genreText: genreElement ? genreElement.innerText : 'Not Found',
+                titleSmall: titleSmall // Return the value
+            };
+        });
+
+        // 3. RESULTS OUTPUT
+        console.log("\n--- [ PROBE RESULTS ] ---");
+        console.log(`Title:       ${pageData.title}`);
+        console.log(`Small Tag:   ${pageData.titleSmall}`);
+        console.log(`Genre Found: ${pageData.genreFound}`);
+        console.log(`Genre Selector: ${pageData.genreSelector}`);
+        console.log(`Genre Parent Class: ${pageData.genreParentClass}`);
+        console.log(`List Items Sample:`, pageData.listTexts);
+        console.log("-------------------------\n");
+
+    } catch (unexpectedError) {
+        console.error(`Probe failed: ${unexpectedError.message}`);
     } finally {
         await browser.close();
+        console.log("Probe complete. Browser closed.");
     }
 })();

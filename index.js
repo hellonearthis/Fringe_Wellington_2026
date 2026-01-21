@@ -1,90 +1,120 @@
+/**
+ * Fringe Event Scraper
+ * Extracts event details from tickets.fringe.co.nz using Puppeteer.
+ * 
+ * This tool was originally developed to scrape past years' data for personal use.
+ * It is now part of the WellyFringe 2026 toolset.
+ */
+
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 
-// const fringe = require('./fringe_events.json'); // Legacy input
-
 (async () => {
   try {
+    // Initialize headless browser
     const browser = await puppeteer.launch({ headless: true });
-    if (!browser) throw new Error('Browser not defined');
+    if (!browser) throw new Error('Browser initialization failed');
 
-    const page = await browser.newPage();
+    const browserPage = await browser.newPage();
 
-    // 1. DISCOVERY PHASE
-    console.log('Discovering all events...');
-    // We navigate to the events page with an empty search to list all events
-    await page.goto('https://tickets.fringe.co.nz/events?s=&venue=&subvenue=&event_type=', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // 1. DISCOVERY PHASE: Find all event pages
+    console.log('--- Phase 1: Discovering all events ---');
 
-    // Wait for the "Book Now" buttons which link to event pages
-    await page.waitForSelector('a.btn.btn-success.secondary-border-color', { timeout: 30000 });
+    // We navigate to the events listing with an empty query to show all available shows
+    const eventsListingUrl = 'https://tickets.fringe.co.nz/events?s=&venue=&subvenue=&event_type=';
+    await browserPage.goto(eventsListingUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    const discoveredUrls = await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('a.btn.btn-success.secondary-border-color'))
-        .map(a => a.href);
-      return [...new Set(links)]; // Deduplicate
-    });
+    // Wait for the "Book Now" buttons which point to individual event pages
+    const eventLinkSelector = 'a.btn.btn-success.secondary-border-color';
+    await browserPage.waitForSelector(eventLinkSelector, { timeout: 30000 });
 
-    console.log(`Discovered ${discoveredUrls.length} unique event URLs.`);
+    const allDiscoveredEventUrls = await browserPage.evaluate((selector) => {
+      const links = Array.from(document.querySelectorAll(selector))
+        .map(anchor => anchor.href);
+      return [...new Set(links)]; // Deduplicate URLs
+    }, eventLinkSelector);
 
-    // 2. PRIORITY PHASE
-    const rawData = fs.readFileSync('./f2026.csv', 'utf8');
-    let priorityUrls = [];
+    console.log(`Discovered ${allDiscoveredEventUrls.length} unique event URLs.`);
+
+    // 2. PRIORITY PHASE: Load user favorites and build the full queue
+    console.log('--- Phase 2: Processing Priorities ---');
+    const priorityDataFile = './f2026.csv';
+    const rawPriorityData = fs.readFileSync(priorityDataFile, 'utf8');
+
+    let userDefinedPriorityUrls = [];
     try {
-      priorityUrls = JSON.parse(rawData);
-    } catch (e) {
-      priorityUrls = rawData.split('\n').filter(line => line.trim() !== '').map(line => line.trim().replace(/['",]/g, ''));
+      // Try parsing as JSON first, then fallback to CSV/line-based format
+      userDefinedPriorityUrls = JSON.parse(rawPriorityData);
+    } catch (parseError) {
+      userDefinedPriorityUrls = rawPriorityData
+        .split('\n')
+        .filter(line => line.trim() !== '')
+        .map(line => line.trim().replace(/['",]/g, ''));
     }
 
-    // Merge: Priority first, then all others discovered (excluding duplicates)
-    const prioritySet = new Set(priorityUrls);
-    const otherUrls = discoveredUrls.filter(url => !prioritySet.has(url));
-    const allUrls = [...priorityUrls, ...otherUrls];
+    // Define the full queue: Favorites first, then the rest
+    const priorityUrlSet = new Set(userDefinedPriorityUrls);
+    const nonPriorityUrls = allDiscoveredEventUrls.filter(url => !priorityUrlSet.has(url));
+    const fullScrapeQueue = [...userDefinedPriorityUrls, ...nonPriorityUrls];
 
-    console.log(`Total queue size: ${allUrls.length} (${priorityUrls.length} priority, ${otherUrls.length} others)`);
+    console.log(`Queue ready: ${fullScrapeQueue.length} total events (${userDefinedPriorityUrls.length} prioritized).`);
 
-    const results = [];
+    const scrapedResults = [];
 
-    // 3. SCRAPING PHASE
-    for (let i = 0; i < allUrls.length; i++) {
-      const link = allUrls[i];
-      if (!link) continue;
+    // 3. SCRAPING PHASE: Visit each event page
+    console.log('--- Phase 3: Scraping Event Data ---');
+    for (let currentQueueIndex = 0; currentQueueIndex < fullScrapeQueue.length; currentQueueIndex++) {
+      const currentEventUrl = fullScrapeQueue[currentQueueIndex];
+      if (!currentEventUrl) continue;
 
-      console.log(`[${i + 1}/${allUrls.length}] Loading page: ${link}`);
+      console.log(`[${currentQueueIndex + 1}/${fullScrapeQueue.length}] Scraping: ${currentEventUrl}`);
 
       try {
-        // Relaxed navigation to avoid timeouts on slow assets
-        await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await browserPage.goto(currentEventUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await browserPage.waitForSelector('body', { timeout: 10000 });
 
-        // Ensure at least the main content wrapper or title is loaded
-        await page.waitForSelector('body', { timeout: 10000 });
-
-        // Scrape details
-        const details = await page.evaluate(() => {
+        // Extract metadata from the current event page
+        const eventMetadata = await browserPage.evaluate(() => {
+          /**
+           * Extracts the event title
+           */
           const title = document.querySelector('h2.primary-color')?.innerText.trim();
 
-          // Location: Find header saying "Venue" and get next element
-          let loc = "";
-          const venueHeader = Array.from(document.querySelectorAll('h2, h3, h4')).find(el => el.innerText.trim() === 'Venue');
-          if (venueHeader && venueHeader.nextElementSibling) {
-            loc = venueHeader.nextElementSibling.innerText.trim().split('\n')[0];
+          /**
+           * Extracts the venue name by finding the "Venue" header
+           */
+          let venueLocation = "";
+          const venueHeading = Array.from(document.querySelectorAll('h2, h3, h4'))
+            .find(el => el.innerText.trim() === 'Venue');
+
+          if (venueHeading && venueHeading.nextElementSibling) {
+            venueLocation = venueHeading.nextElementSibling.innerText.trim().split('\n')[0];
           }
 
-          // Description: Look for paragraphs in the main container (usually .container.py-5)
-          let desc = "";
-          const mainContainer = document.querySelector('.container.py-5') || document.body;
-          const ps = Array.from(mainContainer.querySelectorAll('p'));
-          const descP = ps.find(p => p.innerText.length > 50) || ps[0];
-          if (descP) desc = descP.innerText.trim();
+          /**
+           * Extracts a brief description (usually the first substantial paragraph)
+           */
+          let description = "";
+          const contentContainer = document.querySelector('.container.py-5') || document.body;
+          const paragraphs = Array.from(contentContainer.querySelectorAll('p'));
+          const targetParagraph = paragraphs.find(p => p.innerText.length > 50) || paragraphs[0];
+          if (targetParagraph) description = targetParagraph.innerText.trim();
 
-          // Date Helpers
-          const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+          const monthNames = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+          ];
 
-          function getFullDate(day, monthYearStr, classList) {
-            if (!monthYearStr) return day;
-            const parts = monthYearStr.split(' ');
-            if (parts.length < 2) return `${day} ${monthYearStr}`;
-            const monthName = parts[0];
-            const year = parts[1];
+          /**
+           * Helper to resolve the correct date based on calendar state (new/old month classes)
+           */
+          function resolveFullDate(day, monthYearText, classList) {
+            if (!monthYearText) return day;
+            const textParts = monthYearText.split(' ');
+            if (textParts.length < 2) return `${day} ${monthYearText}`;
+
+            const monthName = textParts[0];
+            const year = textParts[1];
             let monthIndex = monthNames.indexOf(monthName);
             let currentYear = parseInt(year);
 
@@ -98,84 +128,125 @@ const fs = require('fs');
             return `${day} ${monthNames[monthIndex]} ${currentYear}`;
           }
 
-          function expandRange(text) {
-            // Handle range like "3-7 March 2026"
-            const rangeMatch = text.match(/^(\d+)-(\d+)\s+([a-zA-Z]+)\s+(\d{4})$/);
-            if (rangeMatch) {
-              const startDay = parseInt(rangeMatch[1]);
-              const endDay = parseInt(rangeMatch[2]);
-              const month = rangeMatch[3];
-              const year = rangeMatch[4];
-              const expanded = [];
+          /**
+           * Helper to turn "3-7 March 2026" into a comma-separated list of days
+           */
+          function expandDateRange(text) {
+            const rangePattern = /^(\d+)-(\d+)\s+([a-zA-Z]+)\s+(\d{4})$/;
+            const match = text.match(rangePattern);
+            if (match) {
+              const startDay = parseInt(match[1]);
+              const endDay = parseInt(match[2]);
+              const month = match[3];
+              const year = match[4];
+              const daysInRange = [];
               for (let d = startDay; d <= endDay; d++) {
-                expanded.push(`${d} ${month} ${year}`);
+                daysInRange.push(`${d} ${month} ${year}`);
               }
-              return expanded.join(', ');
+              return daysInRange.join(', ');
             }
             return text;
           }
 
-          // Schedule: Look for green days in calendar
-          const monthYear = document.querySelector('.datepicker-days th.datepicker-switch')?.innerText.trim();
-          let availableDays = Array.from(document.querySelectorAll('td.day.green'))
-            .map(el => getFullDate(el.innerText.trim(), monthYear, el.classList))
+          // Search for scheduled days using the calendar widget
+          const calendarMonthYear = document.querySelector('.datepicker-days th.datepicker-switch')?.innerText.trim();
+          let availableDates = Array.from(document.querySelectorAll('td.day.green'))
+            .map(cell => resolveFullDate(cell.innerText.trim(), calendarMonthYear, cell.classList))
             .join(', ');
 
-          // Fallback: If no calendar days found, look for the schedule list with calendar icon
-          if (!availableDays) {
-            const scheduleListItems = Array.from(document.querySelectorAll('ul.schedule li'));
-            const dateItem = scheduleListItems.find(li => li.querySelector('img[src*="calendar.svg"]'));
-            if (dateItem) {
-              availableDays = expandRange(dateItem.innerText.trim());
+          // Fallback: Check for schedule lists if no calendar is found
+          if (!availableDates) {
+            const listItems = Array.from(document.querySelectorAll('ul.schedule li'));
+            const dateListItem = listItems.find(li => li.querySelector('img[src*="calendar.svg"]'));
+            if (dateListItem) {
+              availableDates = expandDateRange(dateListItem.innerText.trim());
             }
           }
 
-          // Time: Look for performanceTime in the page source
-          let time = "";
-          const html = document.documentElement.innerHTML;
-          const timeMatch = html.match(/"performanceTime":"([^"]+)"/) || html.match(/&quot;performanceTime&quot;:&quot;([^&]+)&quot;/);
-          if (timeMatch) {
-            time = timeMatch[1];
+          // Find performance time from hidden JSON or page text
+          let performanceTime = "";
+          const pageHtmlContent = document.documentElement.innerHTML;
+          const timeDataMatch = pageHtmlContent.match(/"performanceTime":"([^"]+)"/) ||
+            pageHtmlContent.match(/&quot;performanceTime&quot;:&quot;([^&]+)&quot;/);
+
+          if (timeDataMatch) {
+            performanceTime = timeDataMatch[1];
           }
 
-          // Fallback: search for HH:MM pattern in schedule list
-          if (!time) {
-            const timeLi = Array.from(document.querySelectorAll('ul.schedule li')).find(li => li.innerText.match(/\d{1,2}:\d{2}/));
-            if (timeLi) time = timeLi.innerText.trim();
+          // Fallback: Look for HH:MM pattern in the schedule section
+          if (!performanceTime) {
+            const timeListItem = Array.from(document.querySelectorAll('ul.schedule li'))
+              .find(li => li.innerText.match(/\d{1,2}:\d{2}/));
+            if (timeListItem) performanceTime = timeListItem.innerText.trim();
           }
 
-          return { title, loc, desc, schedule: availableDays, time };
+          // --- EXTRACT GENRE ---
+          const genreKeywords = ['Comedy', 'Theatre', 'Music', 'Cabaret', 'Dance', 'Circus', 'Visual Arts', 'Talk', 'Workshop', 'Family', 'Improv', 'Poetry', 'Spoken Word', 'Musical', 'Interactive'];
+          let genre = "General";
+
+          // 1. Try to get from the explicit genre tag in the title block
+          const titleGenreTag = document.querySelector('div.title small');
+          if (titleGenreTag && titleGenreTag.innerText.trim().length > 0) {
+            genre = titleGenreTag.innerText.trim();
+          } else {
+            // 2. Fallback: Scan list items for genre
+            const allListItems = Array.from(document.querySelectorAll('ul.schedule li'))
+              .map(li => li.innerText.trim());
+
+            // Match against known keywords
+            const foundGenre = allListItems.find(text => genreKeywords.some(keyword => text.includes(keyword)));
+            if (foundGenre) {
+              genre = foundGenre;
+            } else if (allListItems.length > 0) {
+              // Fallback: take the first relevant item
+              const candidate = allListItems[0];
+              if (!candidate.includes('$') && !candidate.match(/\d/) && candidate !== venueLocation) {
+                genre = candidate;
+              }
+            }
+          }
+
+          return {
+            title,
+            venue: venueLocation,
+            description,
+            scheduleList: availableDates,
+            time: performanceTime,
+            genre: genre
+          };
         });
 
-        console.log(`Scraped: ${details.title} [${details.time || 'No Time'}]`);
+        console.log(`Scraped: ${eventMetadata.title} [${eventMetadata.genre}]`);
 
-        results.push({
-          title: details.title,
-          loc: details.loc,
-          desc: details.desc,
-          link: link,
-          schedule: details.schedule,
-          time: details.time
+        scrapedResults.push({
+          title: eventMetadata.title,
+          loc: eventMetadata.venue,
+          desc: eventMetadata.description,
+          link: currentEventUrl,
+          schedule: eventMetadata.scheduleList,
+          time: eventMetadata.time,
+          genre: eventMetadata.genre
         });
 
-        // Periodic save to avoid losing data in case of crash
-        if (results.length % 10 === 0) {
-          fs.writeFileSync('./fringe_all_events.json', JSON.stringify(results, null, 2));
+        // Periodic save every 10 items to preserve progress
+        if (scrapedResults.length % 10 === 0) {
+          fs.writeFileSync('./fringe_all_events.json', JSON.stringify(scrapedResults, null, 2));
         }
 
-      } catch (err) {
-        console.error(`Failed to scrape ${link}: ${err.message}`);
+      } catch (scrapeError) {
+        console.error(`Error on ${currentEventUrl}: ${scrapeError.message}`);
       }
     }
 
-    // Save final output
-    fs.writeFileSync('./fringe_all_events.json', JSON.stringify(results, null, 2));
+    // Final data save
+    const outputFileName = './fringe_all_events.json';
+    fs.writeFileSync(outputFileName, JSON.stringify(scrapedResults, null, 2));
 
-    console.log('Scraping complete. Data saved to fringe_all_events.json');
+    console.log(`Scraping finished. Results saved to ${outputFileName}`);
 
     await browser.close();
 
-  } catch (error) {
-    console.log(`Error occurred: ${error}`);
+  } catch (globalError) {
+    console.log(`Fatal Error: ${globalError.stack || globalError}`);
   }
 })();

@@ -1,6 +1,6 @@
-# Fringe Calendar Viewer (fringe_calendar.html)
+# WellyFringe 2026: The Viewer (fringe_calendar.html)
 
-Interactive calendar view for the Fringe Festival 2026.
+The Viewer is a standalone interactive calendar built with standard HTML, CSS, and JavaScript. It does not require a server or complex dependencies—simply open `fringe_calendar.html` in any modern web browser.
 
 ## Files Required
 To deploy this viewer, you need:
