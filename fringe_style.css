@@ -1,5 +1,9 @@
 /* STYLES FOR THE WELLINGTON FRINGE CALENDAR */
 
+html {
+    scroll-behavior: smooth;
+}
+
 :root {
     --bg: #0f172a;
     --card-bg: #1e293b;
@@ -217,14 +221,27 @@ h1 {
     align-items: center;
     gap: 1rem;
     text-align: left;
-    transition: transform 0.2s;
-    cursor: pointer;
     border: 1px solid transparent;
+    scroll-margin-top: 100px;
+    transition: background 0.5s, border-color 0.5s;
 }
 
-.event-card:hover {
-    transform: scale(1.01);
+.event-card:target {
+    background: rgba(34, 211, 238, 0.15);
     border-color: var(--primary);
+    animation: anchor-flash 2.5s ease-out;
+}
+
+@keyframes anchor-flash {
+    0% {
+        background: rgba(34, 211, 238, 0.4);
+        border-color: var(--primary);
+    }
+
+    100% {
+        background: var(--card-bg);
+        border-color: transparent;
+    }
 }
 
 .event-time {
@@ -299,90 +316,6 @@ h1 {
 }
 
 /* POPUP DETAILS (Reused) */
-.details-popup-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    backdrop-filter: blur(5px);
-}
-
-.details-popup-overlay.hidden {
-    display: none;
-}
-
-.details-popup {
-    background: var(--card-bg);
-    border: 1px solid var(--primary);
-    border-radius: 16px;
-    padding: 2rem;
-    width: 90%;
-    max-width: 500px;
-    position: relative;
-    box-shadow: 0 0 50px rgba(34, 211, 238, 0.2);
-}
-
-.popup-close {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: none;
-    border: none;
-    color: var(--text);
-    font-size: 1.5rem;
-    cursor: pointer;
-}
-
-.popup-header {
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 1rem;
-}
-
-.popup-title {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.popup-meta {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.9rem;
-    color: var(--text-dim);
-}
-
-.popup-desc {
-    font-family: inherit;
-    line-height: 1.6;
-    color: var(--text-dim);
-    margin-bottom: 2rem;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.popup-btn {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    background: var(--primary);
-    color: #000;
-    text-align: center;
-    text-decoration: none;
-    font-weight: 700;
-    border-radius: 8px;
-    transition: opacity 0.2s;
-}
-
-.popup-btn:hover {
-    opacity: 0.9;
-}
-
 /* ===== TIMELINE VIEW STYLES ===== */
 .timeline-wrapper {
     margin-bottom: 2rem;

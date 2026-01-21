@@ -204,24 +204,6 @@ const htmlTemplate = `<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- DETAILS POPUP -->
-    <div id="popup-overlay" class="details-popup-overlay hidden">
-        <div class="details-popup">
-            <button class="popup-close" data-action="close-popup">×</button>
-            <div class="popup-header">
-                <h2 class="popup-title" id="pop-title">Show Title</h2>
-                <div class="popup-meta">
-                    <span id="pop-genre">Genre</span> • <span id="pop-time">Time</span>
-                </div>
-                <div class="popup-meta" style="margin-top:5px; color:var(--primary)">
-                    <span id="pop-venue">Venue</span>
-                </div>
-            </div>
-            <div class="popup-desc" id="pop-desc"></div>
-            <a href="#" target="_blank" class="popup-btn" id="pop-link">Book Options</a>
-        </div>
-    </div>
-
     <script src="fringe_calendar_app.js"></script>
 </body>
 </html>`;

@@ -7,16 +7,9 @@ This project was born out of a personal need many years ago—long before "vibe 
 
 It’s a passion project from the "classic" era of coding, repurposed and polished for 2026.
 
-## Features
-- **Discovery**: Automatically scans the Fringe ticket site for all upcoming events.
-- **Priority**: Support for a `f2026.csv` list of favorite shows to highlight.
-- **Interactive Calendar**: A standalone HTML application that provides:
-    - Monthly views for Feb/March.
-    - **Interactive Legends**: Filter by Genre or Venue by clicking on legend items.
-    - **Analogous Color Gradients**: Venues sharing a base hub cycle through solid and analogous gradients (-45° and +45°) for better visual distinction.
-    - **Cross-Filtering**: Genre legend dynamically updates based on venue selection (and vice-versa).
+    - **Rich Show Details**: Detailed show cards including full descriptions, genre tags, and direct booking links.
     - **Timeline Visualization**: Drag-to-zoom timeline with current time indicator.
-    - **Quick Search**: Click timeline bars to jump directly to show descriptions.
+    - **Bulletproof Navigation**: Standardized HTML anchors and robust `scrollIntoView` logic for jumping from the timeline to show descriptions with visual feedback.
 
 ## Project Architecture
 - `index.js`: The Puppeteer-based scraper. Navigates, discovers, and extracts event metadata.

@@ -40,26 +40,6 @@ function initCalendar() {
             selectDay(dateStr, dayCell);
             return;
         }
-
-        // 2. Event Card Click (Popup)
-        const eventCard = target.closest('[data-action="open-popup"]');
-        if (eventCard) {
-            const title = eventCard.dataset.title;
-            openPopup(title);
-            return;
-        }
-
-        // 3. Close Popup (X button)
-        if (target.closest('[data-action="close-popup"]')) {
-            closePopup();
-            return;
-        }
-
-        // 4. Close Popup (Overlay click)
-        if (target.id === 'popup-overlay') {
-            closePopup();
-            return;
-        }
     });
 
     // AUTO-SELECT TODAY IF IN RANGE
@@ -107,6 +87,11 @@ function getGenreEmoji(genreStr) {
         if (GENRE_EMOJIS[g]) return GENRE_EMOJIS[g] + ' ';
     }
     return '';
+}
+
+function getShowId(title) {
+    if (!title) return "unknown";
+    return `show-${title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
 }
 
 function renderLegends(events, container, type, currentFilters = {}) {
@@ -291,19 +276,17 @@ function renderFilteredDay() {
             const encodedTitle = event.title.replace(/"/g, '&quot;');
             const isPriorityShow = PRIORITY_URLS.includes(event.link);
             const genreEmoji = getGenreEmoji(event.genre);
-
-            const descSnippet = event.desc ? (event.desc.length > 200 ? event.desc.substring(0, 200) + '...' : event.desc) : '';
+            const showId = getShowId(event.title);
 
             const eventCard = document.createElement('div');
             eventCard.className = 'event-card';
-            eventCard.dataset.action = 'open-popup';
-            eventCard.dataset.title = encodedTitle;
+            eventCard.id = showId;
             eventCard.innerHTML = `
                 <div class="event-time">${event.time || 'TBD'}</div>
                 <div class="event-info">
                     <div class="event-title">${genreEmoji}${event.title} ${isPriorityShow ? '⭐' : ''}</div>
                     <div class="event-genres">${event.genre || ''}</div>
-                    <div class="event-description">${descSnippet}</div>
+                    <div class="event-description">${event.desc || ''}</div>
                     <div class="event-meta">
                         <span class="venue-pill" style="background: ${venueColor}">${event.loc}</span>
                         <a href="${event.link}" target="_blank" class="book-link" onclick="event.stopPropagation()">Book Tickets ↗</a>
@@ -419,8 +402,8 @@ function renderTimeline(events, dateString, zoomRange = null) {
         const genreEmoji = getGenreEmoji(event.genre);
 
         barElement.className = 'show-bar' + (isPriorityShow ? ' priority' : '');
-        barElement.href = event.link;
-        barElement.target = '_blank';
+        const showId = getShowId(event.title);
+        barElement.href = `#${showId}`;
 
         const leftPercent = ((eventStartMinutes - rangeStartMinutes) / totalRangeMinutes) * 100;
         const widthPercent = (eventDuration / totalRangeMinutes) * 100;
@@ -431,11 +414,18 @@ function renderTimeline(events, dateString, zoomRange = null) {
         barElement.style.background = VENUE_COLORS[event.loc] || '';
         barElement.style.pointerEvents = 'auto'; // Re-enable for clicks
         barElement.innerText = genreEmoji + event.title;
-
-        // ALLOW CLICKS, but let drags bubble up to container
         barElement.onclick = (e) => {
             if (didDrag) {
                 e.preventDefault(); // Stop link from opening if we were zooming
+                return;
+            }
+            const targetEl = document.getElementById(showId);
+            if (targetEl) {
+                e.preventDefault();
+                // Update URL without native jump
+                history.pushState(null, null, `#${showId}`);
+                // Robust scroll
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         };
 
@@ -560,27 +550,4 @@ function renderTimeline(events, dateString, zoomRange = null) {
     timelineContainer.addEventListener('pointercancel', handleEnd);
 
     timelineWrapper.appendChild(timelineContainer);
-}
-
-// =============================================================================
-// POPUP FUNCTIONS
-// =============================================================================
-
-function openPopup(title) {
-    const event = ALL_EVENTS.find(e => e.title === title) ||
-        ALL_EVENTS.find(e => e.title.replace(/'/g, "&apos;") === title);
-    if (!event) return;
-
-    document.getElementById('pop-title').innerText = event.title;
-    document.getElementById('pop-time').innerText = event.time || 'Time TBD';
-    document.getElementById('pop-venue').innerText = event.loc;
-    document.getElementById('pop-genre').innerText = event.genre || 'Show';
-    document.getElementById('pop-desc').innerText = event.desc;
-    document.getElementById('pop-link').href = event.link;
-
-    document.getElementById('popup-overlay').classList.remove('hidden');
-}
-
-function closePopup() {
-    document.getElementById('popup-overlay').classList.add('hidden');
 }
