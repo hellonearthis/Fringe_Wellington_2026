@@ -28,6 +28,7 @@ node generate_calendar.js
 - **Show Timeline**: Visual timeline of shows for selected day
 - **Click-and-Drag Zoom**: Zoom into time ranges on the timeline
 - **Jump to Description**: Click timeline bars to scroll to show details
+- **Genre Filter Controls**: Buttons to quickly Clear or Select All genres
 - **Analogous Venue Colors**: Venues cycle through (Solid, Analogous -45°, Analogous +45°) to ensure visual distinctness even when sharing a base hue.
 
 ## How It Works

@@ -9,6 +9,7 @@ It’s a passion project from the "classic" era of coding, repurposed and polish
 
     - **Rich Show Details**: Detailed show cards including full descriptions, genre tags, and direct booking links.
     - **Timeline Visualization**: Drag-to-zoom timeline with current time indicator.
+    - **Legend Controls**: "Clear" and "All" buttons on the Genre Legend for quick filtering.
     - **Bulletproof Navigation**: Standardized HTML anchors and robust `scrollIntoView` logic for jumping from the timeline to show descriptions with visual feedback.
 
 ## Project Architecture

@@ -255,6 +255,43 @@ h1 {
     flex-grow: 1;
 }
 
+/* LEGEND CONTROLS */
+.legend-container {
+    margin-bottom: 1rem;
+}
+
+.legend-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text);
+}
+
+.legend-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.legend-btn {
+    background: transparent;
+    border: 1px solid var(--text-dim);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.legend-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(34, 211, 238, 0.1);
+}
+
 .event-title {
     font-size: 1.1rem;
     font-weight: 600;

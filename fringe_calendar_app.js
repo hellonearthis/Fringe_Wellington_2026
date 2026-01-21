@@ -103,7 +103,42 @@ function renderLegends(events, container, type, currentFilters = {}) {
 
     const title = document.createElement('div');
     title.className = 'legend-title';
-    title.innerText = type === 'genre' ? 'Show Style Legend' : 'Venue Color Legend';
+
+    const titleText = document.createElement('span');
+    titleText.innerText = type === 'genre' ? 'Show Style Legend' : 'Venue Color Legend';
+    title.appendChild(titleText);
+
+    if (type === 'genre') {
+        const controls = document.createElement('div');
+        controls.className = 'legend-controls';
+
+        const unselectBtn = document.createElement('button');
+        unselectBtn.className = 'legend-btn';
+        unselectBtn.innerText = 'Clear';
+        unselectBtn.title = 'Unselect all styles';
+        unselectBtn.onclick = (e) => {
+            e.stopPropagation();
+            activeGenres.clear();
+            renderFilteredDay();
+        };
+
+        const selectBtn = document.createElement('button');
+        selectBtn.className = 'legend-btn';
+        selectBtn.innerText = 'All';
+        selectBtn.title = 'Select all styles';
+        selectBtn.onclick = (e) => {
+            e.stopPropagation();
+            events.forEach(ev => {
+                if (ev.genre) ev.genre.split(',').forEach(g => activeGenres.add(g.trim()));
+            });
+            renderFilteredDay();
+        };
+
+        controls.appendChild(unselectBtn);
+        controls.appendChild(selectBtn);
+        title.appendChild(controls);
+    }
+
     legendDiv.appendChild(title);
 
     // Calculate which items ARE actually present given OTHER filters
